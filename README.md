@@ -1,62 +1,51 @@
-# Buggy Ragdoll v3.10 — All-in-One Experimental Patch
+# Buggy Ragdoll Mega Test
 
-This build combines the configuration changes we have been testing with the
-verified recovery-state byte patch.
+This combines the currently verified experimental fixes into one test build.
 
-## Targets
+### Included
 
-- ordinary jump accidentally entering ragdoll
-- recovery taking too long / failing to leave the physics state
-- excessive bone drift / stretching
-- aggressive anchor/motor correction
-- preserve the known-good ground settings
+1. Normal-jump trigger filtering.
+2. Reduced excessive impact/fall sensitivity.
+3. Reduced visible bone stretching.
+4. Existing ground/foot fixes retained.
+5. Recovery-state synchronization test.
+6. Damage-event ragdoll bypass, targeting the reported gunshot problem.
+7. Vehicle/run-over path left intact.
 
-## Important
+### Save/load location issue
 
-This is an **experimental test build**, not a guaranteed final fix.
+The reported bug where loading a save can put CJ at his last runtime position
+instead of the safehouse/save location is included in the investigation, but
+is NOT blindly binary-patched in this build.
 
-The jump trigger is addressed by raising the existing impact/fall thresholds.
-The recovery path is given more time and a softer blend, plus the recovery
-state candidate clears both adjacent state bytes.
+The available evidence shows `PedProcessControl` and `FindPlayerPed` are involved,
+but the supplied disassembly does not safely identify the exact instruction
+responsible for writing/overriding CJ's saved position. Disabling the whole hook
+would risk breaking ragdoll and/or crashing.
 
-The ground settings remain:
+So this build intentionally leaves that behavior untouched while combining
+everything else. This gives a clean test result:
 
-- GroundSamples = 15
-- GroundExtent = 4.5
-- RebuildDist = 0.60
+- If all ragdoll/damage issues improve but save/load remains wrong, the save
+  bug is isolated to the player-position hook.
+- If save/load becomes correct by itself, no additional position patch is needed.
 
-## Files
+## Test checklist
 
-Place:
+1. Walk.
+2. Jump 10 times.
+3. Shoot CJ.
+4. Shoot NPC.
+5. Hard impact.
+6. Vehicle/run-over.
+7. Wait for recovery.
+8. Try weapons during ragdoll.
+9. Check stretching.
+10. Check feet/ground.
+11. Save at a safehouse.
+12. Walk a substantial distance away.
+13. Reload that save.
+14. Verify CJ appears at the safehouse/save location.
+15. Check for crashes.
 
-    libBuggyRagdoll.so
-    patch.py
-
-in the same directory and run:
-
-    python3 patch.py
-
-It creates:
-
-    libBuggyRagdoll_allfix_test.so
-
-The original library is never modified.
-
-## Test order
-
-1. Start the game and walk normally.
-2. Jump repeatedly.
-   - A normal jump should NOT ragdoll.
-3. Cause a small fall.
-4. Cause a hard impact.
-5. Trigger ragdoll and wait.
-6. Test CJ and NPC recovery separately.
-7. Test CJ weapons while ragdolled.
-8. Test vehicle impacts / entering / exiting vehicles.
-9. Check limb stretching.
-10. Confirm the ground fix is still good.
-11. Confirm there are no crashes.
-
-If normal jumping is fixed but recovery is still broken, do not keep changing
-random constants. That result means the remaining recovery problem is the
-GTA animation-task handoff and needs a code-path patch.
+Keep the original `libBuggyRagdoll.so` as a backup.
