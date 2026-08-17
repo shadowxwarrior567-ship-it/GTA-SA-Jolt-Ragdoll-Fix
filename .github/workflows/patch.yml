@@ -1,0 +1,34 @@
+name: Patch Buggy Ragdoll
+
+on:
+  workflow_dispatch:
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check reference library
+        run: |
+          test -f libBuggyRagdoll.so
+
+      - name: Patch library
+        run: |
+          python3 patch.py
+
+      - name: Package
+        run: |
+          mkdir -p artifact
+          cp libBuggyRagdoll_fixed.so artifact/
+          cp README.md artifact/
+          cd artifact
+          zip -r ../Buggy-Ragdoll-v3.10-Stability-Fix.zip .
+
+      - name: Upload patched library
+        uses: actions/upload-artifact@v4
+        with:
+          name: Buggy-Ragdoll-v3.10-Stability-Fix
+          path: Buggy-Ragdoll-v3.10-Stability-Fix.zip
