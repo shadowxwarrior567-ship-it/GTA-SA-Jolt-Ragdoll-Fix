@@ -1,1 +1,52 @@
+name: build
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;26.3.11579264"
+
+      - name: Build native library
+        run: |
+          "$ANDROID_SDK_ROOT/ndk/26.3.11579264/ndk-build" \
+            NDK_PROJECT_PATH=. \
+            APP_BUILD_SCRIPT=src/Android.mk \
+            NDK_APPLICATION_MK=src/Application.mk \
+            V=1
+
+      - name: Package artifact
+        run: |
+          mkdir -p artifact
+          cp -v libs/armeabi-v7a/libgtasa_jolt_fix.so artifact/
+          cp -v README.md artifact/
+          cd artifact
+          zip -r ../GTA-SA-Jolt-Ragdoll-Fix.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA-SA-Jolt-Ragdoll-Fix
+          path: GTA-SA-Jolt-Ragdoll-Fix.zip
