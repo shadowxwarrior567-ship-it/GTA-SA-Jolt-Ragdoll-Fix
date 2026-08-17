@@ -1,49 +1,57 @@
-# Buggy Ragdoll v3.10 - Stability Fix
+# Buggy Ragdoll v3.10 — Patch B
 
-This project patches the existing Buggy Ragdoll v3.10
-Jolt Physics library.
+This is the first targeted recovery-state synchronization patch.
 
-It does NOT replace the Jolt physics engine.
+## What it changes
 
-## Target
+At the recovery path, v3.10 currently clears only the state byte at:
 
-- GTA San Andreas 2.00
-- Android
-- ARMv7 / armeabi-v7a
-- AML
-- Buggy Ragdoll v3.10
+    entry + 0x05
 
-## Approach
+while the table-active byte at:
 
-The original library contains the complete Jolt ragdoll
-implementation.
+    entry + 0x04
 
-This project modifies its exported physics/stability
-configuration values while leaving the original physics
-implementation intact.
+remains set until later cleanup.
 
-## Main goals
+Patch B changes that single instruction so recovery clears both adjacent
+bytes atomically.
 
-- reduce bone stretching
-- reduce excessive joint correction
-- improve root/anchor stability
-- improve ground behavior
-- reduce jitter
-- improve ragdoll recovery
-- reduce excessive drift
+## What this is NOT
 
-## Testing
+This is not a guaranteed "make CJ stand up" patch.
 
-The original library must be kept as a backup.
+The existing binary does not expose a safe, named GTA animation-task function
+for us to call from this location. Patch B therefore does not invent a
+hard-coded game address.
 
-The generated file is:
+It targets only the state transition that we can verify from the ARM code.
 
-libBuggyRagdoll_fixed.so
+## Build
 
-Do not overwrite the original until the patched version
-has been tested.
+Put the ORIGINAL v3.10 `libBuggyRagdoll.so` beside `patch.py` and run:
 
-## Rollback
+    python3 patch.py
 
-If the game crashes or behaves worse, restore the original
-libBuggyRagdoll.so.
+Output:
+
+    libBuggyRagdoll_patchB.so
+
+Keep the original and your previously successful fixed library as backups.
+
+## Test
+
+Test CJ and NPC separately:
+
+1. Trigger ragdoll.
+2. Wait without pressing anything.
+3. Check whether the ragdoll ends cleanly.
+4. Check whether the ped returns to a normal animation.
+5. Check whether CJ can still use weapons during ragdoll.
+6. Check stretching and ground behavior.
+7. Check vehicle impacts.
+8. Confirm no crashes.
+
+If recovery is still stuck, that tells us Patch B's state cleanup is not the
+missing piece and we should move to the actual animation-task handoff rather
+than changing more physics constants.
