@@ -1,57 +1,62 @@
-# Buggy Ragdoll v3.10 — Patch B
+# Buggy Ragdoll v3.10 — All-in-One Experimental Patch
 
-This is the first targeted recovery-state synchronization patch.
+This build combines the configuration changes we have been testing with the
+verified recovery-state byte patch.
 
-## What it changes
+## Targets
 
-At the recovery path, v3.10 currently clears only the state byte at:
+- ordinary jump accidentally entering ragdoll
+- recovery taking too long / failing to leave the physics state
+- excessive bone drift / stretching
+- aggressive anchor/motor correction
+- preserve the known-good ground settings
 
-    entry + 0x05
+## Important
 
-while the table-active byte at:
+This is an **experimental test build**, not a guaranteed final fix.
 
-    entry + 0x04
+The jump trigger is addressed by raising the existing impact/fall thresholds.
+The recovery path is given more time and a softer blend, plus the recovery
+state candidate clears both adjacent state bytes.
 
-remains set until later cleanup.
+The ground settings remain:
 
-Patch B changes that single instruction so recovery clears both adjacent
-bytes atomically.
+- GroundSamples = 15
+- GroundExtent = 4.5
+- RebuildDist = 0.60
 
-## What this is NOT
+## Files
 
-This is not a guaranteed "make CJ stand up" patch.
+Place:
 
-The existing binary does not expose a safe, named GTA animation-task function
-for us to call from this location. Patch B therefore does not invent a
-hard-coded game address.
+    libBuggyRagdoll.so
+    patch.py
 
-It targets only the state transition that we can verify from the ARM code.
-
-## Build
-
-Put the ORIGINAL v3.10 `libBuggyRagdoll.so` beside `patch.py` and run:
+in the same directory and run:
 
     python3 patch.py
 
-Output:
+It creates:
 
-    libBuggyRagdoll_patchB.so
+    libBuggyRagdoll_allfix_test.so
 
-Keep the original and your previously successful fixed library as backups.
+The original library is never modified.
 
-## Test
+## Test order
 
-Test CJ and NPC separately:
+1. Start the game and walk normally.
+2. Jump repeatedly.
+   - A normal jump should NOT ragdoll.
+3. Cause a small fall.
+4. Cause a hard impact.
+5. Trigger ragdoll and wait.
+6. Test CJ and NPC recovery separately.
+7. Test CJ weapons while ragdolled.
+8. Test vehicle impacts / entering / exiting vehicles.
+9. Check limb stretching.
+10. Confirm the ground fix is still good.
+11. Confirm there are no crashes.
 
-1. Trigger ragdoll.
-2. Wait without pressing anything.
-3. Check whether the ragdoll ends cleanly.
-4. Check whether the ped returns to a normal animation.
-5. Check whether CJ can still use weapons during ragdoll.
-6. Check stretching and ground behavior.
-7. Check vehicle impacts.
-8. Confirm no crashes.
-
-If recovery is still stuck, that tells us Patch B's state cleanup is not the
-missing piece and we should move to the actual animation-task handoff rather
-than changing more physics constants.
+If normal jumping is fixed but recovery is still broken, do not keep changing
+random constants. That result means the remaining recovery problem is the
+GTA animation-task handoff and needs a code-path patch.
