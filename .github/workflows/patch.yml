@@ -22,7 +22,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p artifact
-          cp libBuggyRagdoll_fixed.so artifact/
+          cp libBuggyRagdoll_fixed2.so artifact/
           cp README.md artifact/
           cd artifact
           zip -r ../Buggy-Ragdoll-v3.10-Stability-Fix.zip .
