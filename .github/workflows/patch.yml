@@ -1,4 +1,4 @@
-name: Build Buggy Ragdoll Patch B
+name: Build Buggy Ragdoll All-In-One
 
 on:
   workflow_dispatch:
@@ -14,70 +14,56 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK
+      - name: Check required files
         run: |
-          sdkmanager --install "ndk;26.3.11579264"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> "$GITHUB_ENV"
-
-      - name: Check files
-        run: |
-          echo "Repository contents:"
+          echo "Repository files:"
           find . -maxdepth 3 -type f | sort
 
-      - name: Check original library
-        run: |
           if [ ! -f libBuggyRagdoll.so ]; then
-            echo "ERROR: libBuggyRagdoll.so was not found."
+            echo "ERROR: libBuggyRagdoll.so not found"
             exit 1
           fi
 
-          ls -lh libBuggyRagdoll.so
+          if [ ! -f patch.py ]; then
+            echo "ERROR: patch.py not found"
+            exit 1
+          fi
 
-      - name: Apply Patch B
+      - name: Apply All-In-One Patch
         run: |
           python3 patch.py
 
-          if [ ! -f libBuggyRagdoll_patchB.so ]; then
-            echo "ERROR: Patch B did not create libBuggyRagdoll_patchB.so"
+          echo "Checking patched library..."
+
+          if [ ! -f libBuggyRagdoll_allfix_test.so ]; then
+            echo "ERROR: All-In-One patch did not create the output file"
             exit 1
           fi
 
-          echo "Patch B output:"
-          ls -lh libBuggyRagdoll_patchB.so
-
-      - name: Verify patched library
-        run: |
-          file libBuggyRagdoll_patchB.so
-          ls -lh libBuggyRagdoll_patchB.so
+          ls -lh libBuggyRagdoll_allfix_test.so
 
       - name: Package patched library
         run: |
+          rm -rf artifact
           mkdir -p artifact
 
-          cp libBuggyRagdoll_patchB.so artifact/
+          cp libBuggyRagdoll_allfix_test.so artifact/
 
-          cp README.md artifact/ 2>/dev/null || true
+          if [ -f README.md ]; then
+            cp README.md artifact/
+          fi
 
           cd artifact
-          zip -r ../Buggy-Ragdoll-PatchB.zip .
+          zip -r ../Buggy-Ragdoll-AllInOne.zip .
 
           cd ..
 
-          echo "Final package:"
-          ls -lh Buggy-Ragdoll-PatchB.zip
+          echo "Package created:"
+          ls -lh Buggy-Ragdoll-AllInOne.zip
 
-      - name: Upload Patch B
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Buggy-Ragdoll-PatchB
-          path: Buggy-Ragdoll-PatchB.zip
+          name: Buggy-Ragdoll-AllInOne
+          path: Buggy-Ragdoll-AllInOne.zip
           if-no-files-found: error
