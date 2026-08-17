@@ -1,0 +1,76 @@
+name: Analyze Buggy Ragdoll
+
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-arm-linux-gnueabihf \
+            file
+
+      - name: Verify library
+        run: |
+          file libBuggyRagdoll.so
+          ls -lh libBuggyRagdoll.so
+
+      - name: Create analysis directory
+        run: |
+          mkdir -p analysis
+
+      - name: ELF information
+        run: |
+          readelf -h libBuggyRagdoll.so > analysis/elf-header.txt
+          readelf -S libBuggyRagdoll.so > analysis/sections.txt
+          readelf -s libBuggyRagdoll.so > analysis/symbols.txt
+
+      - name: Dynamic symbols
+        run: |
+          readelf -Ws libBuggyRagdoll.so \
+            > analysis/all-symbols.txt
+
+      - name: Strings
+        run: |
+          strings -n 6 libBuggyRagdoll.so \
+            > analysis/strings.txt
+
+      - name: ARM disassembly
+        run: |
+          arm-linux-gnueabihf-objdump \
+            -D \
+            -M force-thumb \
+            libBuggyRagdoll.so \
+            > analysis/disassembly-thumb.txt
+
+      - name: ARM disassembly
+        run: |
+          arm-linux-gnueabihf-objdump \
+            -D \
+            libBuggyRagdoll.so \
+            > analysis/disassembly.txt
+
+      - name: Search ragdoll integration
+        run: |
+          grep -inE \
+            "ProcessControl|HAnim|PreRender|FindPlayer|FindGround|damage|ragdoll|recover|weapon|vehicle|drift|stretch|ground" \
+            analysis/strings.txt \
+            > analysis/relevant-strings.txt || true
+
+      - name: Package analysis
+        run: |
+          zip -r Buggy-Ragdoll-Analysis.zip analysis
+
+      - name: Upload analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: Buggy-Ragdoll-Analysis
+          path: Buggy-Ragdoll-Analysis.zip
