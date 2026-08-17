@@ -1,34 +1,83 @@
-name: Patch Buggy Ragdoll
+name: Build Buggy Ragdoll Patch B
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  patch:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check reference library
-        run: |
-          test -f libBuggyRagdoll.so
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-      - name: Patch library
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;26.3.11579264"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> "$GITHUB_ENV"
+
+      - name: Check files
+        run: |
+          echo "Repository contents:"
+          find . -maxdepth 3 -type f | sort
+
+      - name: Check original library
+        run: |
+          if [ ! -f libBuggyRagdoll.so ]; then
+            echo "ERROR: libBuggyRagdoll.so was not found."
+            exit 1
+          fi
+
+          ls -lh libBuggyRagdoll.so
+
+      - name: Apply Patch B
         run: |
           python3 patch.py
 
-      - name: Package
+          if [ ! -f libBuggyRagdoll_patchB.so ]; then
+            echo "ERROR: Patch B did not create libBuggyRagdoll_patchB.so"
+            exit 1
+          fi
+
+          echo "Patch B output:"
+          ls -lh libBuggyRagdoll_patchB.so
+
+      - name: Verify patched library
+        run: |
+          file libBuggyRagdoll_patchB.so
+          ls -lh libBuggyRagdoll_patchB.so
+
+      - name: Package patched library
         run: |
           mkdir -p artifact
-          cp libBuggyRagdoll_fixed2.so artifact/
-          cp README.md artifact/
-          cd artifact
-          zip -r ../Buggy-Ragdoll-v3.10-Stability-Fix.zip .
 
-      - name: Upload patched library
+          cp libBuggyRagdoll_patchB.so artifact/
+
+          cp README.md artifact/ 2>/dev/null || true
+
+          cd artifact
+          zip -r ../Buggy-Ragdoll-PatchB.zip .
+
+          cd ..
+
+          echo "Final package:"
+          ls -lh Buggy-Ragdoll-PatchB.zip
+
+      - name: Upload Patch B
         uses: actions/upload-artifact@v4
         with:
-          name: Buggy-Ragdoll-v3.10-Stability-Fix
-          path: Buggy-Ragdoll-v3.10-Stability-Fix.zip
+          name: Buggy-Ragdoll-PatchB
+          path: Buggy-Ragdoll-PatchB.zip
+          if-no-files-found: error
