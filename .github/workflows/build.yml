@@ -1,0 +1,41 @@
+name: Build Buggy Ragdoll Mega Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check files
+        run: |
+          test -f libBuggyRagdoll.so
+          test -f patch.py
+
+      - name: Apply Mega Patch
+        run: |
+          python3 patch.py
+          test -f libBuggyRagdoll_mega_test.so
+          ls -lh libBuggyRagdoll_mega_test.so
+
+      - name: Package
+        run: |
+          mkdir -p artifact
+          cp libBuggyRagdoll_mega_test.so artifact/
+          cp README.md artifact/
+          cd artifact
+          zip -r ../Buggy-Ragdoll-Mega-Test.zip .
+          cd ..
+          ls -lh Buggy-Ragdoll-Mega-Test.zip
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Buggy-Ragdoll-Mega-Test
+          path: Buggy-Ragdoll-Mega-Test.zip
+          if-no-files-found: error
