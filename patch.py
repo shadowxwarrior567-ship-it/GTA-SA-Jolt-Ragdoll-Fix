@@ -4,21 +4,7 @@ from pathlib import Path
 
 
 INPUT = Path("libBuggyRagdoll.so")
-OUTPUT = Path("libBuggyRagdoll_fixed.so")
-
-
-# Exact .data layout of Buggy Ragdoll v3.10
-#
-# .data virtual address:
-#     0x00193BA8
-#
-# .data file offset:
-#     0x00191BA8
-#
-# Therefore:
-#
-# file_offset = 0x191BA8 + (global_address - 0x193BA8)
-
+OUTPUT = Path("libBuggyRagdoll_fixed2.so")
 
 DATA_VADDR = 0x00193BA8
 DATA_OFFSET = 0x00191BA8
@@ -32,7 +18,7 @@ GLOBALS = {
     "gGravity":        0x00193BCC,
     "gTeleportVel":   0x00193BD0,
     "gImpactDeltaV":   0x00193BD4,
-    "gFallSpeed":     0x00193BD8,
+    "gFallSpeed":      0x00193BD8,
 
     "gAnchorBlend":    0x00193BE4,
     "gAnchorGain":     0x00193BE8,
@@ -72,41 +58,47 @@ GLOBALS = {
 }
 
 
-# ------------------------------------------------------------
-# Integrated stability preset
+# Recovery-oriented preset.
 #
-# These values are intentionally conservative.
+# Ground-related values are retained from the successful
+# first patch.
 #
-# The goal is:
-# - reduce excessive bone drift
-# - reduce violent motor corrections
-# - make ground stabilization less aggressive
-# - improve recovery
-# - keep the existing Jolt system intact
-# ------------------------------------------------------------
+# The important changes are:
+#
+# - shorter ragdoll lifetime
+# - longer but smoother blend
+# - stronger recovery damping
+# - lower motor frequency
+# - less aggressive anchor correction
+# - tighter bone-drift tolerance
+#
+# This is intended to encourage the existing recovery code
+# to reach the animation state instead of leaving the ped
+# permanently simulated.
+
 
 PATCH = {
-    "gMaxRagdollTime": 5.0,
-    "gBlendTime":      0.08,
-    "gRecoverTime":    1.50,
+    "gMaxRagdollTime": 3.50,
+    "gBlendTime":      0.20,
+    "gRecoverTime":    0.90,
 
     "gGravity":       -9.81,
     "gTeleportVel":   25.0,
     "gImpactDeltaV":   8.5,
     "gFallSpeed":      2.0,
 
-    "gAnchorBlend":    0.45,
-    "gAnchorGain":     5.0,
-    "gSnapDist":       0.65,
-    "gTearDownDist":   2.5,
-    "gMaxBoneDrift":   2.75,
+    "gAnchorBlend":    0.30,
+    "gAnchorGain":     4.0,
+    "gSnapDist":       0.50,
+    "gTearDownDist":   2.0,
+    "gMaxBoneDrift":   2.00,
 
-    "gMotorFreq":      10.0,
-    "gMotorDamp":       1.15,
+    "gMotorFreq":       6.0,
+    "gMotorDamp":       1.50,
 
-    "gTorqueSpine":   220.0,
-    "gTorqueLimb":    135.0,
-    "gTorqueNeck":     50.0,
+    "gTorqueSpine":   180.0,
+    "gTorqueLimb":    105.0,
+    "gTorqueNeck":     45.0,
 
     "gGravComp":        0.92,
     "gFootLength":      0.24,
@@ -120,16 +112,17 @@ PATCH = {
     "gMaxStepLength":   0.70,
     "gStepHeight":      0.16,
 
-    "gBraceTime":       0.60,
-    "gGiveUpTime":      2.0,
+    "gBraceTime":       0.45,
+    "gGiveUpTime":      1.25,
 
-    "gWindmillAmount":  0.35,
-    "gLocoDamp":       1.10,
+    "gWindmillAmount":  0.25,
+    "gLocoDamp":       1.25,
 
+    # Keep the successful ground fix.
     "gGroundSamples":  15,
     "gGroundExtent":    4.5,
 
-    "gRebuildDist":     0.75,
+    "gRebuildDist":     0.60,
 }
 
 
@@ -146,51 +139,61 @@ def write_float(data, offset, value):
 
 
 def main():
+
     if not INPUT.exists():
-        print("ERROR: libBuggyRagdoll.so was not found.")
-        print("Put the original Buggy Ragdoll v3.10 library in the repository root.")
+        print("ERROR: libBuggyRagdoll.so not found.")
+        print("Upload the ORIGINAL v3.10 library to the repository root.")
         sys.exit(1)
 
     data = bytearray(INPUT.read_bytes())
 
-    print("Buggy Ragdoll v3.10 integrated stability patch")
-    print("")
+    print("==============================================")
+    print(" Buggy Ragdoll v3.10 - Recovery Fix")
+    print("==============================================")
+    print()
 
-    print("Original values:")
-    print("----------------")
+    print("Original configuration:")
+    print("----------------------")
 
     for name, address in GLOBALS.items():
+
         offset = file_offset(address)
+
+        if offset < 0 or offset + 4 > len(data):
+            print(f"ERROR: invalid offset for {name}")
+            sys.exit(1)
 
         if name == "gGroundSamples":
             value = struct.unpack_from("<I", data, offset)[0]
-            print(f"{name:20} {value}")
+            print(f"{name:22} {value}")
         else:
             value = read_float(data, offset)
-            print(f"{name:20} {value:.4f}")
+            print(f"{name:22} {value:.4f}")
 
-    print("")
-    print("Applying stability preset...")
-    print("-----------------------------")
+    print()
+    print("Applying recovery-oriented configuration...")
+    print("---------------------------------------------")
 
     for name, value in PATCH.items():
+
         address = GLOBALS[name]
         offset = file_offset(address)
 
         if name == "gGroundSamples":
             struct.pack_into("<I", data, offset, int(value))
-            print(f"{name:20} -> {int(value)}")
+            print(f"{name:22} -> {int(value)}")
         else:
             write_float(data, offset, value)
-            print(f"{name:20} -> {value}")
+            print(f"{name:22} -> {value}")
 
     OUTPUT.write_bytes(data)
 
-    print("")
+    print()
     print("SUCCESS")
+    print()
     print(f"Created: {OUTPUT}")
-    print("")
-    print("The original library was not modified.")
+    print()
+    print("Original library was NOT modified.")
 
 
 if __name__ == "__main__":
